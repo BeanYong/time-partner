@@ -2,8 +2,8 @@
   <mu-container>
     <!-- TitleBar -->
     <mu-appbar style="width: 100%;" color="primary">
-      <mu-button icon slot="left">
-        <mu-icon value="menu"></mu-icon>
+      <mu-button icon slot="left" @click="showSelectDate()">
+        <mu-icon value="access_time"></mu-icon>
       </mu-button>
       时间卡片
       <mu-button icon slot="right" @click="createTimeCard()">
@@ -47,6 +47,19 @@
         </mu-card-text>
       </mu-card>
     </div>
+    <!-- 半透明mask -->
+    <mu-container v-if="showDateSelecter" class="date-selector-mask">
+    </mu-container>
+    <mu-container v-if="showDateSelecter">
+      <mu-flex justify-content="center" align-items="center" class="date-selector">
+        <mu-paper :z-depth="1">
+          <mu-date-picker :should-disable-date="allowedDates" :date.sync="date" :change="onDateChange(date)"></mu-date-picker>
+        </mu-paper>
+        <mu-button icon @click="hideSelectDate()" class="date-selector-closer">
+          <mu-icon value="highlight_off"></mu-icon>
+        </mu-button>
+      </mu-flex>
+    </mu-container>
     <!-- <router-link to="/sign-up">
       <mu-button full-width color="primary">
         <mu-icon value="add" left></mu-icon>
@@ -67,7 +80,11 @@ export default {
         minutesSum: 0
       },
       // 时间卡片数组
-      timeCards: []
+      timeCards: [],
+      // 显示日期选择对话框
+      showDateSelecter: false,
+      // 用户选择的日期
+      date: undefined
     }
   },
   methods: {
@@ -119,6 +136,50 @@ export default {
         }
       }
       this.today.minutesSum = Math.ceil(sum)
+    },
+
+    /**
+     * 显示选择日期对话框
+     */
+    showSelectDate() {
+      this.showDateSelecter = true
+    },
+
+    /**
+     * 隐藏选择日期对话框
+     */
+    hideSelectDate() {
+      this.showDateSelecter = false
+    },
+
+    /**
+     * 是否允许用户选择某日期
+     * 允许显示返回true，不允许选择返回false
+     */
+    allowedDates(d) {
+      return false
+      // return d.getDate() % 2 == 1 ? true: false
+    },
+
+    /**
+     * 日期改变回调事件
+     */
+    onDateChange(d) {
+      if(d != undefined) {
+        let day = this.date.getDate()
+        let month = this.date.getMonth() + 1
+        let year = this.date.getFullYear()
+        let d = year + '-' + month + '-' + day
+        // 向服务器请求对应日期的数据
+        this.$http.get(this.BASE_API + '/get-time-card-by-date?user_id=' + this.$cookies.get('id') + '&date=' + d).then(response => {
+          if (response.body.result) {
+            this.timeCards = response.body.data
+            this.updateMinutesSum()
+            this.showDateSelecter = false
+            this.date = undefined
+          }
+        })
+      }
     },
 
     /**
@@ -320,5 +381,38 @@ export default {
 .flex-demo {
   width: 0px;
   text-align: center;
+}
+.date-selector-mask {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #000;
+  opacity: 0.7;
+  z-index: 1;
+}
+.date-selector {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
+}
+.date-selector-closer {
+  margin: 0 auto; 
+  position: fixed; 
+  bottom: 10vh;
+  color: #fff;
+  width: 72px;
+  height: 72px;
+}
+.date-selector-closer i {
+  font-size: 42px;
 }
 </style>
