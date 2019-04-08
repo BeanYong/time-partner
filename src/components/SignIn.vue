@@ -2,7 +2,7 @@
   <mu-container>
     <!-- TitleBar -->
     <mu-appbar style="width: 100%;" color="primary" title="登录">
-      <mu-button icon slot="left">
+      <mu-button icon slot="left" @click="back()">
         <mu-icon value="chevron_left"></mu-icon>
       </mu-button>
 
@@ -15,11 +15,11 @@
       <mu-card style="width: 100%; margin: 18px auto;">
         <mu-card-header>
           <mu-avatar slot="avatar" size="100">
-            <img src="https://ss2.bdstatic.com/70cFvnSh_Q1YnxGkpoWK1HF6hhy/it/u=300533062,3547534330&fm=27&gp=0.jpg">
+            <img src="../assets/avatar.jpg">
           </mu-avatar>
         </mu-card-header>
         <mu-form ref="form" :model="user" class="mu-demo-form" label-position="left">
-          <mu-form-item label="手机号码" help-text="请输入11位手机号码" prop="tel" :rules="telRules">
+          <mu-form-item label="手机号码" prop="tel" :rules="telRules">
             <mu-text-field v-model="user.tel" prop="tel"></mu-text-field>
           </mu-form-item>
           <mu-form-item label="登录密码" prop="psw" :rules="pswRules">
@@ -34,6 +34,8 @@
   </mu-container>
 </template>
 <script>
+import { hex_md5 } from '../libs/md5.js'
+
 export default {
   name: 'Home',
   data() {
@@ -46,11 +48,6 @@ export default {
         { validate: (val) => !!val, message: '必须填写密码'},
         { validate: (val) => val.length >= 8 && val.length <= 16, message: '密码长度必须大于8小于16'}
       ],
-      pswConfirmRules: [
-        { validate: (val) => !!val, message: '必须填写确认密码'},
-        { validate: (val) => val == this.user.psw, message: '两次填写的密码不一致'}
-      ],
-      argeeRules: [{ validate: (val) => !!val, message: '必须同意用户协议'}],
       // 用户登录信息
       user: {
         tel: '',
@@ -65,11 +62,8 @@ export default {
     signIn() {
       this.$refs.form.validate().then((result) => {
         if(result){
-          this.$http.get(this.BASE_API + '/sign-in?tel=' + this.user.tel + '&psw=' + this.user.psw).then(response => {
-            // get body data
-            if (response.body.result) {
-            }
-          });
+          let md5_psw = hex_md5(this.user.psw)
+          this.login(this.user.tel, md5_psw, 'home')
         }
       });
     }

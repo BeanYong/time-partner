@@ -2,7 +2,7 @@
   <mu-container>
     <!-- TitleBar -->
     <mu-appbar style="width: 100%;" color="primary" title="注册用户">
-      <mu-button icon slot="left">
+      <mu-button icon slot="left" @click="back()">
         <mu-icon value="chevron_left"></mu-icon>
       </mu-button>
 
@@ -15,7 +15,7 @@
       <mu-card style="width: 100%; margin: 18px auto;">
         <mu-card-header>
           <mu-avatar slot="avatar" size="100">
-            <img src="https://ss2.bdstatic.com/70cFvnSh_Q1YnxGkpoWK1HF6hhy/it/u=300533062,3547534330&fm=27&gp=0.jpg">
+            <img src="../assets/avatar.jpg">
           </mu-avatar>
         </mu-card-header>
         <mu-form ref="form" :model="user" class="mu-demo-form" label-position="left">
@@ -40,6 +40,8 @@
   </mu-container>
 </template>
 <script>
+import { hex_md5 } from '../libs/md5.js'
+
 export default {
   name: 'Home',
   data() {
@@ -73,9 +75,12 @@ export default {
     signUp() {
       this.$refs.form.validate().then((result) => {
         if(result){
-          this.$http.get(this.BASE_API + '/sign-up?tel=' + this.user.tel + '&psw=' + this.user.psw).then(response => {
-            // get body data
+          this.$http.get(this.BASE_API + '/sign-up?tel=' + this.user.tel + '&psw=' + hex_md5(this.user.psw)).then(response => {
             if (response.body.result) {
+              this.$toast.success(response.body.message)
+              this.$router.push({ name: 'sign-in' });
+            } else {
+              this.$toast.error(response.body.message)
             }
           });
         }
