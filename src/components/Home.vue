@@ -39,6 +39,9 @@
                 <mu-date-input placeholder="结束时间" v-model="timeSpan.endTime" type="time" view-type="list" clock-type="24hr" @change="onDatePickerChange(cardIndex, spanIndex, 1)"></mu-date-input>
               </mu-flex>
             </mu-flex>
+            <mu-flex class="time-card-sum">
+              小计： {{timeCard.timeCardSum || 0}} min
+            </mu-flex>
             <mu-button full-width color="primary" @click="createTimeSpan(cardIndex)">
               <mu-icon value="add" left></mu-icon>
               添加时间段
@@ -53,7 +56,7 @@
     <mu-container v-if="showDateSelecter">
       <mu-flex justify-content="center" align-items="center" class="date-selector">
         <mu-paper :z-depth="1">
-          <mu-date-picker :should-disable-date="allowedDates" :date.sync="date" :change="onDateChange(date)"></mu-date-picker>
+          <mu-date-picker :date.sync="date" :change="onDateChange(date)"></mu-date-picker>
         </mu-paper>
         <mu-button icon @click="hideSelectDate()" class="date-selector-closer">
           <mu-icon value="highlight_off"></mu-icon>
@@ -128,12 +131,21 @@ export default {
     updateMinutesSum() {
       let sum = 0
       for(let timeCard of this.timeCards) {
+        // 时间卡片的总时间
+        let timeCardSum = 0
+
         for(let timeSpan of timeCard.timeSpans) {
           if(timeSpan.startTime && timeSpan.endTime) {
             let span = timeSpan.endTime - timeSpan.startTime
-            sum += span / 1000 / 60
+            let spanSum = span / 1000 / 60
+            // 时间卡片的总时间
+            timeCardSum += Math.ceil(spanSum)
+            // 今日总时间
+            sum += spanSum
           }
         }
+
+        timeCard.timeCardSum = timeCardSum
       }
       this.today.minutesSum = Math.ceil(sum)
     },
@@ -153,15 +165,6 @@ export default {
     },
 
     /**
-     * 是否允许用户选择某日期
-     * 允许显示返回true，不允许选择返回false
-     */
-    allowedDates(d) {
-      return false
-      // return d.getDate() % 2 == 1 ? true: false
-    },
-
-    /**
      * 日期改变回调事件
      */
     onDateChange(d) {
@@ -177,6 +180,8 @@ export default {
             this.updateMinutesSum()
             this.showDateSelecter = false
             this.date = undefined
+          } else {
+            this.$toast.warning(response.body.message)
           }
         })
       }
@@ -368,6 +373,11 @@ export default {
   width: 100%;
   margin: 12px auto;
 }
+.time-card-sum {
+  font-size: 18px;
+  float: right;
+  margin-bottom: 26px;
+}
 .delete-time-card {
   width: 26px;
   height: 26px;
@@ -407,7 +417,7 @@ export default {
 .date-selector-closer {
   margin: 0 auto; 
   position: fixed; 
-  bottom: 10vh;
+  bottom: 4vh;
   color: #fff;
   width: 72px;
   height: 72px;
