@@ -12,12 +12,14 @@
     </mu-appbar>
     <!-- Main Content -->
     <div style="width: 100%; background: #fff; padding: 18px;">
-      <router-link to="/sign-in">
+      <router-link to="/analysis" slot="avatar">
         <mu-card class="card-header">
           <mu-card-header :title="today.date" :sub-title="today.slogan">
-            <mu-avatar slot="avatar">
-                <img src="../assets/avatar.jpg">
-            </mu-avatar>
+            <router-link to="/sign-in" slot="avatar">
+              <mu-avatar>
+                  <img src="../assets/avatar.jpg">
+              </mu-avatar>
+            </router-link>
           </mu-card-header>
           <mu-paper class="demo-paper card-header-panel" :z-depth="0" :circle="true">
             {{today.minutesSum || 0}} min
@@ -63,12 +65,6 @@
         </mu-button>
       </mu-flex>
     </mu-container>
-    <!-- <router-link to="/sign-up">
-      <mu-button full-width color="primary">
-        <mu-icon value="add" left></mu-icon>
-        注册
-      </mu-button>
-    </router-link> -->
   </mu-container>
 </template>
 <script>

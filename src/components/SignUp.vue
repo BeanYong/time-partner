@@ -43,7 +43,7 @@
 import { hex_md5 } from '../libs/md5.js'
 
 export default {
-  name: 'Home',
+  name: 'SignUp',
   data() {
     return {
       telRules: [

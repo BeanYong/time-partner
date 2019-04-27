@@ -1,20 +1,24 @@
 import Vue from 'vue'
-import VueRouter from "vue-router";
-import MuseUI from 'muse-ui';
-import 'muse-ui/dist/muse-ui.css';
-import VueResource from 'vue-resource';
-import Toast from 'muse-ui-toast';
+import VueRouter from "vue-router"
+import MuseUI from 'muse-ui'
+import 'muse-ui/dist/muse-ui.css'
+import VueResource from 'vue-resource'
+import Toast from 'muse-ui-toast'
 import VueCookies from 'vue-cookies'
+import Echarts from 'echarts'
 import App from './App.vue'
 import Home from '../src/components/Home.vue'
 import SignUp from '../src/components/SignUp.vue'
 import SignIn from '../src/components/SignIn.vue'
+import Analysis from '../src/components/Analysis.vue'
 
 Vue.use(VueRouter)
 Vue.use(MuseUI)
 Vue.use(VueResource)
 Vue.use(Toast);
 Vue.use(VueCookies)
+Vue.use(Echarts)
+
 Vue.config.productionTip = false
 
 // 服务器api公共头
@@ -23,11 +27,14 @@ Vue.prototype.BASE_API = "https://time.beanyon.site"
 Vue.prototype.back = function() {
   history.back()
 }
+// Echarts模块
+Vue.prototype.echarts = Echarts
 
 const routes = [
     { path: '/home', name: 'home', component: Home },
     { path: '/sign-up', name: 'sign-up', component: SignUp },
     { path: '/sign-in', name: 'sign-in', component: SignIn },
+    { path: '/analysis', name: 'analysis', component: Analysis },
     // 重定向
     { path: '/', redirect: '/home' }
 ]
