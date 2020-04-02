@@ -2,6 +2,8 @@ import Vue from 'vue'
 import VueRouter from "vue-router"
 import MuseUI from 'muse-ui'
 import 'muse-ui/dist/muse-ui.css'
+import 'muse-ui-loading/dist/muse-ui-loading.css'; // load css
+import Loading from 'muse-ui-loading';
 import VueResource from 'vue-resource'
 import Toast from 'muse-ui-toast'
 import VueCookies from 'vue-cookies'
@@ -11,9 +13,12 @@ import Home from '../src/components/Home.vue'
 import SignUp from '../src/components/SignUp.vue'
 import SignIn from '../src/components/SignIn.vue'
 import Analysis from '../src/components/Analysis.vue'
+import Mine from '../src/components/Mine.vue'
+import EditUserInfo from '../src/components/EditUserInfo.vue'
 
 Vue.use(VueRouter)
 Vue.use(MuseUI)
+Vue.use(Loading);
 Vue.use(VueResource)
 Vue.use(Toast);
 Vue.use(VueCookies)
@@ -21,20 +26,20 @@ Vue.use(Echarts)
 
 Vue.config.productionTip = false
 
-// 服务器api公共头
-Vue.prototype.BASE_API = "https://time.beanyon.site"
-// 全局back函数
-Vue.prototype.back = function() {
-  history.back()
-}
 // Echarts模块
 Vue.prototype.echarts = Echarts
+
+// 服务器api公共头
+Vue.prototype.BASE_API = "https://time.beanyon.site"
+// Vue.prototype.BASE_API = "http://localhost:8082"
 
 const routes = [
     { path: '/home', name: 'home', component: Home },
     { path: '/sign-up', name: 'sign-up', component: SignUp },
     { path: '/sign-in', name: 'sign-in', component: SignIn },
     { path: '/analysis', name: 'analysis', component: Analysis },
+    { path: '/mine', name: 'mine', component: Mine },
+    { path: '/edit-user-info', name: 'edit-user-info', component: EditUserInfo },
     // 重定向
     { path: '/', redirect: '/home' }
 ]
@@ -43,49 +48,6 @@ const router = new VueRouter({
     mode: 'history', // 去掉路由地址的#
     routes: routes
 })
-
-// http请求拦截器
-// Vue.http.interceptors.push((request, next) => {
-//     // 请求前
-//     if (request.method == 'POST') {
-//         // 为POST请求添加access_token和check_key
-//         request.body['access_token'] = localStorage.getItem('access_token');
-//         request.body['check_key'] = localStorage.getItem('check_key');
-//     }
-
-//     if (request.method == 'GET') {
-//         // 为GET请求添加access_token和check_key
-//         if (request.url.indexOf('?') != -1) {
-//             request.url += '&access_token=' + localStorage.getItem('access_token') + '&check_key=' + localStorage.getItem('check_key');
-//         } else {
-//             request.url += '?access_token=' + localStorage.getItem('access_token') + '&check_key=' + localStorage.getItem('check_key');
-//         }
-//     }
-
-//     // 请求后
-//     next((response) => {
-//         // 截获登录超时，更新access_token和check_key
-//         if (response.body.access_token && response.body.check_key) {
-//             localStorage.setItem('access_token', response.body.access_token);
-//             localStorage.setItem('check_key', response.body.check_key);
-//         }
-
-//         if (response.body.message == '登录已经失效，请重新登录') {
-//             Vue.prototype.$message({
-//                 type: 'info',
-//                 message: response.body.message
-//             });
-//             localStorage.removeItem('access_token');
-//             localStorage.removeItem('check_key');
-//             localStorage.removeItem('name');
-//             localStorage.removeItem('user_role');
-//             localStorage.removeItem('user_role_type');
-//             localStorage.removeItem('messagesCount');
-//             localStorage.removeItem('id');
-//             router.push({ name: 'login' });
-//         }
-//     });
-// });
 
 // 对Date的扩展，将 Date 转化为指定格式的String   
 // 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符，   
@@ -113,10 +75,43 @@ Date.prototype.format = function(fmt)
 }
 
 /**
+ * 显示加载中动画
+ */
+Vue.prototype.showLoading = function() {
+  return this.$loading()
+}
+
+// 全局back函数
+Vue.prototype.back = function() {
+  history.back()
+}
+
+/**
+ * 从cookies中读取用户信息
+ */
+Vue.prototype.getUserInfoFromCookies = function() {
+  let user = {
+    "name": "",
+    "tel": "",
+    "gender": "",
+    "birthday": "",
+    "createdAt": ""
+  }
+
+  user.tel = this.$cookies.get("tel")
+  user.name = this.$cookies.get("name")
+  user.gender = this.$cookies.get("gender")
+  user.createdAt = this.$cookies.get("createdAt")
+  user.birthday = this.$cookies.get("birthday") == "null" ? "" : this.$cookies.get("birthday")
+
+  return user
+}
+
+/**
  * 登录逻辑
  */
 Vue.prototype.login = function(tel, password, route) {
-  this.$http.get(this.BASE_API + '/sign-in?tel=' + tel + '&psw=' + password).then(response => {
+  this.$http.post(this.BASE_API + '/user/sign-in', {'tel': tel, 'psw': password}).then(response => {
     if (response.body.result) {
       // 将用户信息存入cookie，15天过期
       let expire = 60 * 60 * 24 * 15
@@ -125,16 +120,42 @@ Vue.prototype.login = function(tel, password, route) {
       this.$cookies.set('id', response.body.data.id, expire)
       this.$cookies.set('name', response.body.data.name, expire)
       this.$cookies.set('gender', response.body.data.gender, expire)
-      this.$cookies.set('age', response.body.data.age, expire)
       this.$cookies.set('createdAt', response.body.data.createdAt, expire)
+      this.$cookies.set('birthday', response.body.data.birthday, expire)
+      this.$cookies.set('sessionId', response.body.data.sessionId, expire)
+      this.$cookies.set('status', response.body.data.status, expire)
 
       this.$toast.success(response.body.message)
-      this.$router.push({ name: route });
+      this.$router.push({ name: route })
     } else {
       this.$toast.error(response.body.message)
     }
   });
 }
+
+// http请求拦截器
+Vue.http.interceptors.push(function(request, next) {
+    // 显示加载中动画
+    let loading = Vue.prototype.showLoading()
+
+    // 请求前
+    request.headers.set("Authorization", Vue.prototype.$cookies.get("sessionId"))
+
+    // 请求后
+    next((response) => {
+        // 尚未登录
+        if (response.body.code == 2001) {
+            this.$toast.error(response.body.message)
+            this.$cookies.remove('sessionId')
+            router.push({ name: 'sign-in' });
+        }
+
+        // 隐藏加载中动画
+        if(loading){
+          loading.close()
+        }
+    });
+});
 
 new Vue({
   router: router,

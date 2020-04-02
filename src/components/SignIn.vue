@@ -15,7 +15,7 @@
       <mu-card style="width: 100%; margin: 18px auto;">
         <mu-card-header>
           <mu-avatar slot="avatar" size="100">
-            <img src="../assets/avatar.jpg">
+            <img src="https://now.beanyon.site/avatar/default-avatar.jpg">
           </mu-avatar>
         </mu-card-header>
         <mu-form ref="form" :model="user" class="mu-demo-form" label-position="left">
@@ -57,6 +57,13 @@ export default {
   },
   methods: {
     /**
+     * 根据cookie中的数据，初始化账号密码
+     */
+    initData(){
+      this.user.tel = this.$cookies.get("tel")
+    },
+
+    /**
      * 提交登录
      */
     signIn() {
@@ -67,6 +74,9 @@ export default {
         }
       });
     }
+  },
+  mounted() {
+    this.initData()
   }
 }
 </script>

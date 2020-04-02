@@ -1,7 +1,7 @@
 <template>
   <mu-container>
     <!-- TitleBar -->
-    <mu-appbar style="width: 100%;" color="primary" title="注册用户">
+    <mu-appbar style="width: 100%;" color="primary" title="注册">
       <mu-button icon slot="left" @click="back()">
         <mu-icon value="chevron_left"></mu-icon>
       </mu-button>
@@ -15,7 +15,7 @@
       <mu-card style="width: 100%; margin: 18px auto;">
         <mu-card-header>
           <mu-avatar slot="avatar" size="100">
-            <img src="../assets/avatar.jpg">
+            <img src="https://now.beanyon.site/avatar/default-avatar.jpg">
           </mu-avatar>
         </mu-card-header>
         <mu-form ref="form" :model="user" class="mu-demo-form" label-position="left">
@@ -27,9 +27,6 @@
           </mu-form-item>
           <mu-form-item label="确认密码" prop="pswConfirm" :rules="pswConfirmRules">
               <mu-text-field type="password" v-model="user.pswConfirm" prop="pswConfirm"></mu-text-field>
-          </mu-form-item>
-          <mu-form-item prop="isAgree" :rules="argeeRules">
-            <mu-checkbox label="同意用户协议" v-model="user.isAgree"></mu-checkbox>
           </mu-form-item>
         </mu-form>
       </mu-card>
@@ -58,13 +55,11 @@ export default {
         { validate: (val) => !!val, message: '必须填写确认密码'},
         { validate: (val) => val == this.user.psw, message: '两次填写的密码不一致'}
       ],
-      argeeRules: [{ validate: (val) => !!val, message: '必须同意用户协议'}],
       // 用户注册信息
       user: {
         tel: '',
         psw: '',
-        pswConfirm: '',
-        isAgree: false
+        pswConfirm: ''
       }
     }
   },
@@ -75,7 +70,7 @@ export default {
     signUp() {
       this.$refs.form.validate().then((result) => {
         if(result){
-          this.$http.get(this.BASE_API + '/sign-up?tel=' + this.user.tel + '&psw=' + hex_md5(this.user.psw)).then(response => {
+          this.$http.post(this.BASE_API + '/user/sign-up', {'tel': this.user.tel, 'psw': hex_md5(this.user.psw)}).then(response => {
             if (response.body.result) {
               this.$toast.success(response.body.message)
               this.$router.push({ name: 'sign-in' });

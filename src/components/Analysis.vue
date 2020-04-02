@@ -1,27 +1,31 @@
 <template>
   <mu-container>
     <!-- TitleBar -->
-    <mu-appbar style="width: 100%;" color="primary" title="数据分析">
-      <mu-button icon slot="left" @click="back()">
-        <mu-icon value="chevron_left"></mu-icon>
-      </mu-button>
-      <router-link to="/sign-in" slot="right" style="color: #fff;height: inherit;">
-        <mu-button flat>筛选</mu-button>
-      </router-link>
+    <mu-appbar style="width: 100%; position: fixed; top: 0; left: 0;" color="primary" title="数据分析">
     </mu-appbar>
+
     <!-- Main Content -->
     <mu-container>
       <mu-card class="abstract">
-        <mu-card-title :title="abstract.title" :sub-title="abstract.subTitle"></mu-card-title>
-        <div class="abstract-item"><p>{{abstract.numActivity}}</p>工作数</div>
-        <div class="abstract-item"><p>{{abstract.sumMinutes}}</p>时长(min)</div>
+        <!-- 时间选择区域 -->
+        <mu-flex class="flex-wrapper" align-items="center">
+          <mu-flex class="time-input" justify-content="center" fill>
+            <mu-date-input placeholder="开始日期" v-model="startDate" type="date" container="dialog" @change="onDatePickerChange()"></mu-date-input>
+          </mu-flex>
+          至
+          <mu-flex class="time-input" justify-content="center" fill>
+            <mu-date-input placeholder="结束日期" v-model="endDate" type="date" container="dialog" @change="onDatePickerChange()"></mu-date-input>
+          </mu-flex>
+        </mu-flex>
+        <div class="abstract-item"><p class="orange">{{abstract.numActivity}}</p>工作数（项）</div>
+        <div class="abstract-item"><p class="red">{{abstract.sumMinutes}}</p>总耗时（分钟）</div>
       </mu-card>
       <div class="charts">
-        <h2 class="chart-title-proportion">7日内工作占比</h2>
+        <h2 class="chart-title-proportion">工作类型占比</h2>
         <div id="proportion" :style="{width: '100%', height: '300px'}"></div>
       </div>
       <div class="charts">
-        <h2 class="chart-title-trendency">7日内每日走势</h2>
+        <h2 class="chart-title-trendency">每日工时走势</h2>
         <div id="trendency" :style="{width: '100%', height: '300px'}"></div>
       </div>
     </mu-container>
@@ -33,21 +37,19 @@ export default {
   name: 'Analysis',
   data() {
     return {
-      // 要获取的数据类型:1 日报，2 周报，3 月报
-      type: 1,
+      // 要查询的起始时间
+      startDate: "",
+      // 要查询的结束时间
+      endDate: "",
       abstract: {
-        'type': 1,
         'title': '数据总览',
-        'subTitle': '7日数据',
         'numActivity': 0,
         'sumMinutes': 0
       },
       // 阶段时间卡片按任务统计
       timeCardSumsByActivity: [],
       // 阶段时间卡片按日期统计
-      timeCardSumsByDate: [],
-      // 阶段总的分钟数
-      minutesSum: 0
+      timeCardSumsByDate: []
     }
   },
   methods: {
@@ -55,8 +57,19 @@ export default {
      * 获取数据
      */
     getData() {
-      this.$http.get(this.BASE_API + '/get-analysis-data?type=' + this.abstract.type).then(response => {
+      // 开始日期或结束日期为空，默认获取七天内数据
+      if(!this.startDate || !this.endDate){
+        let endTime = new Date()
+        let startTime = new Date()
+        startTime.setDate(endTime.getDate()-7)
+
+        this.startDate = this.getDateStr(startTime)
+        this.endDate = this.getDateStr(endTime)
+      }
+
+      this.$http.post(this.BASE_API + '/analysis/data', {"startDate": this.startDate, "endDate": this.endDate}).then(response => {
         if (response.body.result) {
+          this.init()
           this.calcMinutesSum(response.body.data)
           this.initTrendencyChart()
           this.initProportionChart()
@@ -64,6 +77,20 @@ export default {
           this.$toast.error(response.body.message)
         }
       })
+    },
+
+    /**
+     * 重置所有数据
+     */
+    init() {
+      this.timeCardSumsByActivity = []
+      this.timeCardSumsByDate = []
+      this.abstract = {
+        'title': '数据总览',
+        'numActivity': 0,
+        'sumMinutes': 0
+      }
+      this.showFilter = false
     },
 
     /**
@@ -77,7 +104,7 @@ export default {
         let timeCardSum = 0
 
         // 计算每张时间卡片的总时间
-        for(let timeSpan of timeCard.timeSpans) {
+        for(let timeSpan of timeCard.timeSpanList) {
           if(timeSpan.startTime && timeSpan.endTime) {
             let span = timeSpan.endTime - timeSpan.startTime
             let spanSum = span / 1000 / 60
@@ -151,6 +178,7 @@ export default {
       // 抽取要显示的数据
       let dates = []
       let lineData = []
+
       for(let timeCard of this.timeCardSumsByDate) {
         dates.push(timeCard.date)
         lineData.push(timeCard.minutes)
@@ -182,11 +210,9 @@ export default {
     initProportionChart() {
       // 抽取要显示的数据
       let activities = []
-      let dates = []
       let pieData = []
       for(let timeCard of this.timeCardSumsByActivity) {
         activities.push(timeCard.activity)
-        dates.push(timeCard.createdAt)
         pieData.push({'value': timeCard.timeCardSum, 'name': timeCard.activity})
       }
 
@@ -234,9 +260,61 @@ export default {
 
       // 绘制图表
       trendencyChart.setOption(trendencyOption);
+    },
+
+    /**
+     * 事件选择器值发生变化的监听器，用于确定筛选日期
+     */
+    onDatePickerChange() {
+      if(typeof this.startDate == 'object') {
+        this.startDate = this.getDateStr(this.startDate)
+      }
+
+      if(typeof this.endDate == 'object') {
+        this.endDate = this.getDateStr(this.endDate)
+      }
+
+      if(this.startDate && this.endDate && this.getDateObj(this.startDate).getTime() < this.getDateObj(this.endDate).getTime()) {
+        // 按照给定日期区间获取数据
+        this.getData()
+      } else {
+        this.$toast.error('开始日期必须小于结束日期，请重新输入')
+      }
+    },
+
+    /**
+     * 根据日期字符串获取Date对象
+     */
+    getDateObj(dateStr) {
+      let datePartArr = dateStr.split("-")
+      return new Date(datePartArr[0], datePartArr[1], datePartArr[2])
+    },
+
+    /**
+     * 根据Date对象获取yyyy-MM-dd格式字符串
+     */
+    getDateStr(date) {
+      let year = date.getFullYear()
+      let month = date.getMonth() + 1
+      let day = date.getDate()
+
+      month = month < 10 ? "0"+month : month
+      day = day < 10 ? "0"+day : day
+
+      return year + "-" + month + "-" + day
+    },
+
+    /**
+     * 将开始时间和结束时间的input居中显示
+     */
+    centerInputs(){
+      let timeInputs = document.getElementsByTagName("input")
+      timeInputs[0].style.textAlign="center"
+      timeInputs[1].style.textAlign="center"
     }
   },
   mounted() {
+    this.centerInputs()
     this.getData()
   }
 }
@@ -244,9 +322,33 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+
+.mu-transition-row {
+  width: 100%;
+  margin: 10px 0;
+  overflow: hidden;
+}
+
+.mu-transition-box {
+  width: 100%;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-wrapper{
+  width: 90%;
+  margin: 0 auto;
+}
+
+input {
+  text-align: center;
+}
+
 .abstract {
   width: 100%;
-  margin: 18px 0;
+  margin-top: 72px;
 }
 
 .abstract-item {
@@ -259,7 +361,6 @@ export default {
 }
 
 .abstract-item p {
-  color: #e6a23c;
   font-size: 32px;
   font-weight: bold;
   margin: 24px 0;
@@ -275,6 +376,13 @@ export default {
 
 .chart-title-trendency {
   margin: 0;
+}
+
+.mu-input {
+  width: auto;
+  margin: 0;
+  font-size: 18px;
+  height: 60px;
 }
 
 </style>
