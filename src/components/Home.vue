@@ -2,7 +2,7 @@
   <mu-container>
     <!-- TitleBar -->
     <mu-appbar style="width: 100%;position: fixed;top: 0;left: 0;" color="primary" title="时间卡片">
-      <mu-button icon slot="left" @click="showSelectDate()">
+      <mu-button icon slot="left" @click="showDateSelecter = true">
         <mu-icon value="history"></mu-icon>
       </mu-button>
       <mu-button icon slot="right" @click="createTimeCard()">
@@ -20,6 +20,12 @@
           </span>
         </div>
         <p class="today-info-slogan">{{today.slogan}}</p>
+        <router-link to="/time-plan" class="time-plan-btn">
+          <mu-button round color="primary">
+            定制时间计划
+            <mu-icon right value="settings"></mu-icon>
+          </mu-button>
+        </router-link>
       </div>
       <mu-card class="time-card" v-for="(timeCard, cardIndex) in timeCards" :key="cardIndex">
         <mu-icon value="clear" class="delete-time-card" @click="deleteTimeCard(cardIndex)"></mu-icon>
@@ -39,9 +45,13 @@
             <mu-flex class="time-card-sum">
               小计： {{timeCard.timeCardSum || 0}} min
             </mu-flex>
-            <mu-button full-width color="primary" @click="createTimeSpan(cardIndex)">
-              <mu-icon value="add" left></mu-icon>
-              添加时间段
+            <mu-button v-if="!isTiming || curTimingCardId != timeCard.id" :disabled="isTiming && curTimingCardId != timeCard.id" full-width color="primary" @click="startTiming(cardIndex)">
+              <mu-icon value="alarm" left></mu-icon>
+              开始计时
+            </mu-button>
+            <mu-button v-if="isTiming && curTimingCardId == timeCard.id" full-width color="red" @click="endTiming(cardIndex)">
+              <mu-icon value="alarm" left></mu-icon>
+              结束计时
             </mu-button>
           </mu-form>
         </mu-card-text>
@@ -55,7 +65,7 @@
         <mu-paper :z-depth="1">
           <mu-date-picker :date.sync="date" :change="onDateChange(date)"></mu-date-picker>
         </mu-paper>
-        <mu-button icon @click="hideSelectDate()" class="date-selector-closer">
+        <mu-button icon @click="showDateSelecter = false" class="date-selector-closer">
           <mu-icon value="highlight_off"></mu-icon>
         </mu-button>
       </mu-flex>
@@ -78,7 +88,11 @@ export default {
       // 显示日期选择对话框
       showDateSelecter: false,
       // 用户选择的日期
-      date: undefined
+      date: undefined,
+      // 是否在计时阶段，如果是，在当前计时结束前，不能再开始其它计时
+      isTiming: false,
+      // 当前在计时的时间卡片id
+      curTimingCardId: 0
     }
   },
   methods: {
@@ -89,6 +103,25 @@ export default {
       this.today.date = new Date().format('yyyy-MM-dd')
       this.getTodayTimeCard()
       this.getUserLoginTimes()
+    },
+
+    /**
+     * 初始化计时状态
+     */
+    initIsTiming() {
+      for(let i = 0; i < this.timeCards.length; i++){
+        let timeSpanList = this.timeCards[i].timeSpanList
+
+        for(let j = 0; j < timeSpanList.length; j++){
+          let endTime = timeSpanList[j].endTime
+          
+          if(endTime == 0){
+            this.isTiming = true
+            this.curTimingCardId = this.timeCards[i].id
+            return
+          }
+        }
+      }
     },
 
     /**
@@ -118,51 +151,28 @@ export default {
             let spanSum = span / 1000 / 60
             // 时间卡片的总时间
             timeCardSum += Math.ceil(spanSum)
-            // 今日总时间
-            sum += spanSum
           }
         }
 
         timeCard.timeCardSum = timeCardSum
+        sum += timeCardSum
       }
       this.today.minutesSum = Math.ceil(sum)
     },
 
     /**
-     * 显示选择日期对话框
-     */
-    showSelectDate() {
-      this.showDateSelecter = true
-    },
-
-    /**
-     * 隐藏选择日期对话框
-     */
-    hideSelectDate() {
-      this.showDateSelecter = false
-    },
-
-    /**
-     * 日期改变回调事件
+     * 日期改变回调事件，用于监听过往日期的选择
      */
     onDateChange(d) {
       if(d != undefined) {
-        let day = this.date.getDate()
-        let month = this.date.getMonth() + 1
-        let year = this.date.getFullYear()
-
-        month = month < 10 ? '0'+month : month
-        day = day < 10 ? '0'+day : day
-
-        let d = year + '-' + month + '-' + day
         // 向服务器请求对应日期的数据
-        this.$http.get(this.BASE_API + '/time-card/list?&date=' + d).then(response => {
+        this.$http.get(this.BASE_API + '/time-card/list?&date=' + d.format("yyyy-MM-dd")).then(response => {
           if (response.body.result) {
             this.timeCards = response.body.data
             this.updateMinutesSum()
             this.showDateSelecter = false
             this.date = undefined
-            this.today.date = d
+            this.today.date = d.format("yyyy-MM-dd")
           } else {
             this.$toast.warning(response.body.message)
           }
@@ -176,8 +186,17 @@ export default {
     createTimeCard() {
       this.$http.post(this.BASE_API + '/time-card/create').then(response => {
         if (response.body.result) {
-          this.getTodayTimeCard()
+          this.timeCards.splice(
+            0, // 索引位置
+            0, // 要删除元素的数量
+            {  // 元素
+              "id": response.body.data,
+              "activity": "",
+              "timeSpanList": []
+            }
+          )
           this.$toast.success(response.body.message)
+          this.focusOnFirstInput()
         } else {
           this.$toast.error(response.body.message)
         }
@@ -185,14 +204,30 @@ export default {
     },
 
     /**
-     * 为时间卡片添加时间段
+     * 开始计时，为时间卡片添加时间段
      */
-    createTimeSpan(cardIndex) {
-      this.timeCards[cardIndex].timeSpanList.push({
-        id: -1,
-        startTime: 0,
-        endTime: 0
-      })
+    startTiming(cardIndex) {
+      this.createTimeSpan(cardIndex, this.timeCards[cardIndex].id, new Date().getTime())
+
+      this.isTiming = true
+      this.curTimingCardId = this.timeCards[cardIndex].id
+    },
+
+    /**
+     * 结束计时
+     */
+    endTiming(cardIndex) {
+      let endTime = new Date().getTime()
+
+      this.updateEndTime(
+        this.timeCards[cardIndex].timeSpanList[this.timeCards[cardIndex].timeSpanList.length-1].id, 
+        endTime
+      )
+
+      this.timeCards[cardIndex].timeSpanList[this.timeCards[cardIndex].timeSpanList.length-1].endTime = endTime
+
+      this.isTiming = false
+      this.curTimingCardId = 0
     },
 
     /**
@@ -203,8 +238,58 @@ export default {
         if (response.body.result) {
           this.timeCards = response.body.data
           this.updateMinutesSum()
+          this.initIsTiming()
         }
       })
+    },
+
+    /**
+     * 创建时间卡片
+     */
+    createTimeSpan(cardIndex, cardId, startTime) {
+      this.$http.post(this.BASE_API + '/time-span/create', {'cardId': cardId, 'startTime': startTime}).then(response => {
+            if (response.body.result) {
+              let spanId = response.body.data
+
+              // 更新时间段id以及开始时间显示
+              this.timeCards[cardIndex].timeSpanList.push({
+                id: spanId,
+                startTime: startTime,
+                endTime: 0
+              })
+              this.$toast.success(response.body.message)
+            } else {
+              this.$toast.error(response.body.message)
+            }
+          })
+    },
+
+    /**
+     * 更新开始时间
+     */
+    updateStartTime(spanId, startTime){
+      this.$http.post(this.BASE_API + '/time-span/update-start-time', {'spanId': spanId, 'startTime': startTime}).then(response => {
+              if (response.body.result) {
+                this.updateMinutesSum()
+                this.$toast.success(response.body.message)
+              } else {
+                this.$toast.error(response.body.message)
+              }
+            })
+    },
+
+    /**
+     * 更新结束时间
+     */
+    updateEndTime(spanId, endTime){
+      this.$http.post(this.BASE_API + '/time-span/update-end-time', {'spanId': spanId, 'endTime': endTime}).then(response => {
+              if (response.body.result) {
+                this.updateMinutesSum()
+                this.$toast.success(response.body.message)
+              } else {
+                this.$toast.error(response.body.message)
+              }
+            })
     },
 
     /**
@@ -234,15 +319,7 @@ export default {
         // 不存在，需要创建
         if(startTime) {
           // 使用开始时间创建
-          this.$http.post(this.BASE_API + '/time-span/create', {'cardId': cardId, 'startTime': startTime}).then(response => {
-            if (response.body.result) {
-              // 更新时间段id
-              this.timeCards[cardIndex].timeSpanList[spanIndex].id = response.body.data
-              this.$toast.success(response.body.message)
-            } else {
-              this.$toast.error(response.body.message)
-            }
-          })
+          this.createTimeSpan(cardIndex, spanIndex, cardId, startTime)
         } else {
           // 开始时间为空，无法创建
           this.$toast.error('请先输入开始时间')
@@ -255,14 +332,7 @@ export default {
           // 开始时间不空，并且不是string类型
           if(endTime == 0 || (endTime - startTime >= 0)) {
             // 结束时间大于开始时间，更新
-            this.$http.post(this.BASE_API + '/time-span/update-start-time', {'spanId': spanId, 'startTime': startTime}).then(response => {
-              if (response.body.result) {
-                this.getTodayTimeCard()
-                this.$toast.success(response.body.message)
-              } else {
-                this.$toast.error(response.body.message)
-              }
-            })
+            this.updateStartTime(spanId, startTime)
           } else {
             // 结束时间不大于开始时间，无法更新
             this.$toast.error('开始时间必须小于结束时间，请重新输入')
@@ -274,14 +344,7 @@ export default {
           // 结束时间不空，并且不是string类型
           if(endTime - startTime >= 0) {
             // 结束时间大于开始时间，更新
-            this.$http.post(this.BASE_API + '/time-span/update-end-time', {'spanId': spanId, 'endTime': endTime}).then(response => {
-              if (response.body.result) {
-                this.updateMinutesSum()
-                this.$toast.success(response.body.message)
-              } else {
-                this.$toast.error(response.body.message)
-              }
-            })
+            this.updateEndTime(spanId, endTime)
           } else {
             // 结束时间不大于开始时间，无法更新
             this.$toast.error('开始时间必须小于结束时间，请重新输入')
@@ -299,6 +362,7 @@ export default {
       let activity = this.timeCards[cardIndex].activity.trim()
 
       if(activity.length > 0 && activity.length <= 20){
+        // 发起更新activity的网络请求
         this.$http.post(this.BASE_API + '/time-card/update-activity', {'cardId': cardId, 'activity': activity}).then(response => {
           if (response.body.result) {
             this.$toast.success(response.body.message)
@@ -319,20 +383,8 @@ export default {
 
       this.$http.post(this.BASE_API + '/time-card/delete', {'cardId': cardId}).then(response => {
         if (response.body.result) {
-          if (this.timeCards.length > 1){
-            let newTimeCards = []
-
-            for(let timeCard of this.timeCards) {
-              if(timeCard.id != cardId){
-                newTimeCards.push(timeCard)
-              }
-            }
-
-            this.timeCards = newTimeCards
-          } else {
-            this.timeCards = []
-            this.today.minutesSum = 0
-          }
+          this.timeCards.splice(cardIndex, 1)
+          this.updateMinutesSum()
           this.$toast.success(response.body.message)
         } else {
           this.$toast.error(response.body.message)
@@ -350,7 +402,7 @@ export default {
 <style scoped>
 .card-header {
   width: 100%;
-  height: 100px;
+  height: 150px;
   box-shadow: 0px 1px 1px 2px #f0f0f0;
   border-radius: 4px;
   position: relative;
@@ -388,12 +440,21 @@ export default {
   color: #333;
 }
 .today-info-slogan {
-  font-size: 16px;
   position: absolute;
-  bottom: 20px;
+  top: 60px;
   right: 20px;
   margin: 0;
+  font-size: 16px;
   color: rgba(0,0,0,.54);
+}
+.time-plan-btn {
+  display: block;
+  width: 100%;
+  position: absolute;
+  bottom: 16px;
+}
+.time-plan-btn button {
+  letter-spacing: 2px;
 }
 .time-card {
   position: relative;

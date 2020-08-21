@@ -63,8 +63,8 @@ export default {
         let startTime = new Date()
         startTime.setDate(endTime.getDate()-7)
 
-        this.startDate = this.getDateStr(startTime)
-        this.endDate = this.getDateStr(endTime)
+        this.startDate = startTime.format("yyyy-MM-dd")
+        this.endDate = endTime.format("yyyy-MM-dd")
       }
 
       this.$http.post(this.BASE_API + '/analysis/data', {"startDate": this.startDate, "endDate": this.endDate}).then(response => {
@@ -267,41 +267,19 @@ export default {
      */
     onDatePickerChange() {
       if(typeof this.startDate == 'object') {
-        this.startDate = this.getDateStr(this.startDate)
+        this.startDate = this.startDate.format("yyyy-MM-dd")
       }
 
       if(typeof this.endDate == 'object') {
-        this.endDate = this.getDateStr(this.endDate)
+        this.endDate = this.endDate.format("yyyy-MM-dd")
       }
 
-      if(this.startDate && this.endDate && this.getDateObj(this.startDate).getTime() < this.getDateObj(this.endDate).getTime()) {
+      if(this.startDate && this.endDate && new Date(this.startDate).getTime() < new Date(this.endDate).getTime()) {
         // 按照给定日期区间获取数据
         this.getData()
       } else {
         this.$toast.error('开始日期必须小于结束日期，请重新输入')
       }
-    },
-
-    /**
-     * 根据日期字符串获取Date对象
-     */
-    getDateObj(dateStr) {
-      let datePartArr = dateStr.split("-")
-      return new Date(datePartArr[0], datePartArr[1], datePartArr[2])
-    },
-
-    /**
-     * 根据Date对象获取yyyy-MM-dd格式字符串
-     */
-    getDateStr(date) {
-      let year = date.getFullYear()
-      let month = date.getMonth() + 1
-      let day = date.getDate()
-
-      month = month < 10 ? "0"+month : month
-      day = day < 10 ? "0"+day : day
-
-      return year + "-" + month + "-" + day
     },
 
     /**

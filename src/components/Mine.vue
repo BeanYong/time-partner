@@ -4,15 +4,13 @@
     <mu-appbar style="width: 100%;position: fixed;top: 0;left: 0;" color="primary" title="个人中心">
     </mu-appbar>
     <!-- User Info -->
-    <div style="width: 100%; background: #fff; padding: 72px 12px 12px;">
+    <div style="width: 100%; background: #fff; padding: 72px 0 12px 0;">
       <div class="user-header">
         <img src="https://now.beanyon.site/avatar/default-avatar.jpg">
-        <div class="name-box">
-          <div class="username">{{user.name}}</div>
-          <router-link to="/edit-user-info">
-            <mu-icon class="username-edit" value="edit"></mu-icon>
-          </router-link>
-        </div>
+        <div class="username">{{user.name}}</div>
+        <router-link to="/edit-user-info">
+          <mu-icon class="username-edit" value="edit"></mu-icon>
+        </router-link>
       </div>
     </div>
     <!-- Time Info -->
@@ -103,7 +101,7 @@ export default {
   height: 60px;
   border-radius: 50%;
 }
-.name-box {
+.username {
   font-size: 18px;
   margin-top: 6px;
   color: #333;

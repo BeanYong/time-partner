@@ -19,7 +19,7 @@
           </mu-avatar>
         </mu-card-header>
         <mu-form ref="form" :model="user" class="mu-demo-form" label-position="left">
-          <mu-form-item label="手机号码" help-text="请输入11位手机号码" prop="tel" :rules="telRules">
+          <mu-form-item label="手机号码" prop="tel" :rules="telRules">
             <mu-text-field v-model="user.tel" prop="tel"></mu-text-field>
           </mu-form-item>
           <mu-form-item label="登录密码" prop="psw" :rules="pswRules">

@@ -54,22 +54,16 @@ export default {
       // 判断用户信息是否被修改过
       if(this.userInfoChanged()) {
         // 格式化生日
-        if(typeof this.user.birthday == "object"){
-          let year = this.user.birthday.getFullYear()
-          let month = this.user.birthday.getMonth() + 1
-          let day = this.user.birthday.getDate()
-          this.user.birthday = year + "-" + month + "-" + day
-          console.log(this.user.birthday)
-        }
+        this.user.birthday = new Date(this.user.birthday).format("yyyy-MM-dd")
 
         // 发起修改请求
         this.$http.post(this.BASE_API + "/user/update-info", this.user).then(response => {
           if(response.body.result){
             // 同步用户信息
             this.bakUserInfo()
-            this.$cookies.set('name', this.user.name)
-            this.$cookies.set('gender', this.user.gender)
-            this.$cookies.set('birthday', this.user.birthday)
+            this.$cookies.set('name', this.user.name, this.expire)
+            this.$cookies.set('gender', this.user.gender, this.expire)
+            this.$cookies.set('birthday', this.user.birthday, this.expire)
             this.$toast.success(response.body.message)
           } else {
             this.$toast.error(response.body.message)

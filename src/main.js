@@ -15,6 +15,7 @@ import SignIn from '../src/components/SignIn.vue'
 import Analysis from '../src/components/Analysis.vue'
 import Mine from '../src/components/Mine.vue'
 import EditUserInfo from '../src/components/EditUserInfo.vue'
+import TimePlan from '../src/components/TimePlan.vue'
 
 Vue.use(VueRouter)
 Vue.use(MuseUI)
@@ -40,6 +41,7 @@ const routes = [
     { path: '/analysis', name: 'analysis', component: Analysis },
     { path: '/mine', name: 'mine', component: Mine },
     { path: '/edit-user-info', name: 'edit-user-info', component: EditUserInfo },
+    { path: '/time-plan', name: 'time-plan', component: TimePlan },
     // 重定向
     { path: '/', redirect: '/home' }
 ]
@@ -49,12 +51,15 @@ const router = new VueRouter({
     routes: routes
 })
 
-// 对Date的扩展，将 Date 转化为指定格式的String   
-// 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符，   
-// 年(y)可以用 1-4 个占位符，毫秒(S)只能用 1 个占位符(是 1-3 位的数字)   
-// 例子：   
-// (new Date()).Format("yyyy-MM-dd hh:mm:ss.S") ==> 2006-07-02 08:09:04.423   
-// (new Date()).Format("yyyy-M-d h:m:s.S")      ==> 2006-7-2 8:9:4.18   
+// cookies过期时间
+Vue.prototype.expire = 60 * 60 * 24 * 15
+
+// 对Date的扩展，将 Date 转化为指定格式的String
+// 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符，
+// 年(y)可以用 1-4 个占位符，毫秒(S)只能用 1 个占位符(是 1-3 位的数字)
+// 例子：
+// (new Date()).Format("yyyy-MM-dd hh:mm:ss.S") ==> 2006-07-02 08:09:04.423
+// (new Date()).Format("yyyy-M-d h:m:s.S")      ==> 2006-7-2 8:9:4.18
 Date.prototype.format = function(fmt)   
 { //author: meizz   
   var o = {   
@@ -87,6 +92,15 @@ Vue.prototype.back = function() {
 }
 
 /**
+ * 聚焦第一个输入框
+ */
+Vue.prototype.focusOnFirstInput = function() {
+  setTimeout(function(){
+    document.getElementsByTagName("input")[0].focus()
+  }, 20)
+},
+
+/**
  * 从cookies中读取用户信息
  */
 Vue.prototype.getUserInfoFromCookies = function() {
@@ -114,7 +128,7 @@ Vue.prototype.login = function(tel, password, route) {
   this.$http.post(this.BASE_API + '/user/sign-in', {'tel': tel, 'psw': password}).then(response => {
     if (response.body.result) {
       // 将用户信息存入cookie，15天过期
-      let expire = 60 * 60 * 24 * 15
+      let expire = Vue.prototype.expire
       this.$cookies.set('tel', response.body.data.tel, expire)
       this.$cookies.set('password', password, expire)
       this.$cookies.set('id', response.body.data.id, expire)
